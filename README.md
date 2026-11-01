@@ -3,7 +3,14 @@
 Forecasting 1-minute NIFTY 50 prices (January 2021) with ARIMA, benchmarked against a random-walk
 (persistence) baseline.
 
+[![CI](https://github.com/apoorvsingh090/NIFTY-ARIMA/actions/workflows/ci.yml/badge.svg)](https://github.com/apoorvsingh090/NIFTY-ARIMA/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/github/license/apoorvsingh090/NIFTY-ARIMA)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](pyproject.toml)
+[![CodeQL](https://github.com/apoorvsingh090/NIFTY-ARIMA/actions/workflows/codeql.yml/badge.svg)](https://github.com/apoorvsingh090/NIFTY-ARIMA/actions/workflows/codeql.yml)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/apoorvsingh090/NIFTY-ARIMA/blob/main/TIMESERIES_NIFTY.ipynb)
+
+Benchmarks ARIMA against a random-walk baseline on intraday NIFTY data, with
+walk-forward evaluation, tick-accurate forecasts and residual diagnostics.
 
 ## Contents
 
@@ -11,7 +18,10 @@ Forecasting 1-minute NIFTY 50 prices (January 2021) with ARIMA, benchmarked agai
 | --- | --- |
 | `TIMESERIES_NIFTY.ipynb` | Walkthrough: EDA, stationarity tests, baselines, AR/MA/ARIMA, results table |
 | `nifty_arima.py` | Data loading, forecasters, metrics and diagnostics used by the notebook |
+| `tests/` | Pytest suite for the forecasting module |
 | `requirements.txt` | Dependencies |
+| `CONTRIBUTING.md` | Development setup, standards and PR process |
+| `CHANGELOG.md` | Release history ([Keep a Changelog](https://keepachangelog.com)) |
 
 ## Data
 
@@ -42,6 +52,17 @@ jupyter notebook TIMESERIES_NIFTY.ipynb
 
 In Colab, just run the first cell: it clones the repo, installs dependencies and adds the module to
 `sys.path`.
+
+## Development
+
+```bash
+pip install ruff pytest pytest-cov
+ruff check .            # lint
+python -m pytest        # tests
+```
+
+CI runs both on Python 3.10, 3.11 and 3.12 for every push to `main` and every pull request. CodeQL
+scans the code on a weekly schedule, and Dependabot keeps dependencies and Actions up to date.
 
 ## Method
 
@@ -92,3 +113,14 @@ uncertainty estimate was miscalibrated.
 - One month of data only — results are illustrative, not generalizable.
 - No transaction costs, volatility modeling or intraday seasonality; this is a forecasting exercise, not
   a trading strategy.
+
+## Contributing
+
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) and the
+[Code of Conduct](CODE_OF_CONDUCT.md) first, then open an issue or a pull request.
+Bug reports and feature requests have dedicated templates.
+
+## License
+
+Released under the [MIT License](LICENSE).
+

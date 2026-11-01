@@ -1,0 +1,8 @@
+# Default reviewers for the repository.
+# See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+* @apoorvsingh090
+
+/.github/ @apoorvsingh090
+/nifty_arima.py @apoorvsingh090
+/tests/ @apoorvsingh090
