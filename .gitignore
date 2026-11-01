@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.repo/
+.pytest_cache/
+
+# local data extracts
+data/
+*.zip
+Intraday 1 Min Data/
