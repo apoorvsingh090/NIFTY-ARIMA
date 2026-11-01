@@ -1,0 +1,15 @@
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = [".repo", ".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+"TIMESERIES_NIFTY.ipynb" = ["E402"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
