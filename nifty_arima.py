@@ -195,7 +195,11 @@ def _split(values: np.ndarray, train_fraction: float):
     return values[:n_train], values[n_train:]
 
 
-def persistence_forecast(series, train_fraction: float = TRAIN_FRACTION, tick: float = TICK) -> ForecastResult:
+def persistence_forecast(
+    series,
+    train_fraction: float = TRAIN_FRACTION,
+    tick: float = TICK,
+) -> ForecastResult:
     """Random-walk baseline: tomorrow's price equals the last observed price."""
     values = np.asarray(series, dtype=float)
     train, test = _split(values, train_fraction)
@@ -284,7 +288,7 @@ def residual_correction_forecast(
     previous = float(train[-1])
     for obs in test:
         pred_error = float(np.asarray(fit.params)[0])
-        for coef, lag in zip(coefs, lags):
+        for coef, lag in zip(coefs, lags, strict=False):
             pred_error += coef * error_history[-lag]
         predictions.append(float(tick_round(previous + pred_error, tick)))
         error_history.append(float(obs) - previous)
