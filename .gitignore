@@ -12,3 +12,5 @@ htmlcov/
 data/
 *.zip
 Intraday 1 Min Data/
+
+*.egg-info/
