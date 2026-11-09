@@ -34,7 +34,6 @@ __all__ = [
     "TRAIN_FRACTION",
     "ForecastResult",
     "adf_summary",
-    "grid_search_arima",
     "load_intraday",
     "ljung_box_test",
     "moving_average_forecast",
@@ -96,6 +95,9 @@ def load_intraday(path: str) -> pd.DataFrame:
     df = df.sort_index()
     if df.index.has_duplicates:
         raise ValueError("duplicate timestamps in source data")
+    close = df["close"]
+    if not np.isfinite(close).all():
+        raise ValueError("close column contains NaN/inf values")
     return df
 
 
@@ -103,10 +105,6 @@ def adf_summary(series, label: str = "series") -> dict:
     """Run the Augmented Dickey-Fuller test and print a readable summary."""
     values = pd.Series(series).dropna()
     stat, pvalue, used_lags, nobs, critical, _ = adfuller(values)
-    print(f"ADF ({label}): statistic={stat:.4f}, p-value={pvalue:.6f}, lags={used_lags}, n={nobs}")
-    for key, value in critical.items():
-        print(f"  critical ({key}): {value:.3f}")
-    print("  => stationary" if pvalue < 0.05 else "  => non-stationary")
     return {"stat": stat, "pvalue": pvalue, "used_lags": used_lags, "critical": critical}
 
 
@@ -259,7 +257,6 @@ def walk_forward_ar(
         name="AR (AutoReg)",
         predictions=predictions,
         actual=test,
-        order=(len(lags), 0, 0),
         train=train,
     )
 
@@ -280,8 +277,7 @@ def residual_correction_forecast(
         warnings.simplefilter("ignore")
         fit = AutoReg(train_errors, lags=lags).fit()
 
-    k = len(lags)
-    coefs = np.asarray(fit.params)[1 : 1 + k]
+    coefs = np.asarray(fit.params)[1 : 1 + len(lags)]
     error_history = list(train_errors)
 
     predictions = []
@@ -298,7 +294,7 @@ def residual_correction_forecast(
         name="MA (residual AR)",
         predictions=predictions,
         actual=test,
-        order=(k, 0, k),
+        order=None,
         train=train,
     )
 
@@ -308,12 +304,14 @@ def walk_forward_arima(
     order: tuple,
     train_fraction: float = TRAIN_FRACTION,
     tick: float = TICK,
-    refit_every: int = 1,
+    refit_every: int = 25,
 ) -> ForecastResult:
     """Expanding-window one-step-ahead ARIMA forecast.
 
-    The model is refit every `refit_every` steps and appended with the newly
-    observed value in between, so no future information leaks into a forecast.
+    The model is fully refit every `refit_every` steps; in between, the fit is
+    advanced with `append(..., refit=False)`, which updates the state-space
+    Kalman filter without another hill-climb. Pass refit_every=1 for
+    per-step refits. No future information leaks into any forecast.
     """
     values = np.asarray(series, dtype=float)
     train, test = _split(values, train_fraction)
@@ -333,8 +331,8 @@ def walk_forward_arima(
         interval = np.asarray(forecast.conf_int())[0]
 
         predictions.append(float(tick_round(point, tick)))
-        lower.append(float(tick_round(interval[0], tick)))
-        upper.append(float(tick_round(interval[1], tick)))
+        lower.append(float(np.floor(interval[0] / tick) * tick))
+        upper.append(float(np.ceil(interval[1] / tick) * tick))
 
         history.append(float(obs))
         if refit_every > 1:
@@ -373,36 +371,6 @@ def select_order_by_aic(series, orders) -> pd.DataFrame:
     return table
 
 
-def grid_search_arima(
-    series,
-    orders,
-    train_fraction: float = 0.8,
-    tick: float = TICK,
-    refit_every: int = 1,
-) -> tuple[tuple, pd.DataFrame]:
-    """Walk-forward RMSE for each candidate order (slower than AIC selection)."""
-    rows = []
-    for order in orders:
-        try:
-            result = walk_forward_arima(
-                series,
-                order=order,
-                train_fraction=train_fraction,
-                tick=tick,
-                refit_every=refit_every,
-            )
-            rmse = result.metrics()["rmse"]
-            rows.append({"order": tuple(order), "rmse": rmse})
-            print(f"ARIMA{tuple(order)} RMSE={rmse:.3f}")
-        except Exception as exc:
-            rows.append({"order": tuple(order), "rmse": float("nan"), "error": str(exc)})
-            print(f"ARIMA{tuple(order)} failed: {exc}")
-
-    table = pd.DataFrame(rows).set_index("order").sort_values("rmse")
-    best = tuple(table["rmse"].idxmin())
-    return best, table
-
-
 def forecast_metrics(y_true, y_pred, train=None) -> dict:
     """RMSE, MAE, sMAPE, MASE and directional accuracy."""
     actual = np.asarray(y_true, dtype=float)
@@ -422,25 +390,30 @@ def forecast_metrics(y_true, y_pred, train=None) -> dict:
             mase = mae / scale
 
     direction = float("nan")
+    flat_rate = float("nan")
     if len(actual) > 1:
         actual_move = np.diff(actual)
         predicted_move = predicted[1:] - actual[:-1]
-        direction = float(np.mean(np.sign(actual_move) == np.sign(predicted_move)))
+        nonzero = actual_move != 0
+        if nonzero.any():
+            direction = float(np.mean(
+                np.sign(actual_move[nonzero]) == np.sign(predicted_move[nonzero])))
+        flat_rate = float(1.0 - nonzero.mean())
 
     return {
         "rmse": rmse,
         "mae": mae,
         "smape": smape,
         "mase": mase,
-        "dir_acc": direction,
+        # Share of bars with zero move; high values mean the bar set is coarse.
+        "flat_rate": flat_rate,
+        "dir_acc": direction,  # sign accuracy on NONZERO actual moves only
     }
 
 
 def ljung_box_test(residuals, lags=(10, 20)) -> pd.DataFrame:
     """Ljung-Box test for autocorrelation left in the residuals."""
-    table = acorr_ljungbox(np.asarray(residuals, dtype=float), lags=list(lags), return_df=True)
-    print(table)
-    return table
+    return acorr_ljungbox(np.asarray(residuals, dtype=float), lags=list(lags), return_df=True)
 
 
 def plot_residual_diagnostics(result: ForecastResult):

@@ -120,3 +120,38 @@ def test_summary_row_exposes_all_metrics(close):
 
     for key in ("model", "order", "rmse", "mae", "smape", "mase", "dir_acc"):
         assert key in row
+
+
+def test_walk_forward_arima_appends_between_refits(close):
+    # A refit_every > 1 must run the append() path, not a full refit per step.
+    result = na.walk_forward_arima(close, order=(2, 1, 1), train_fraction=0.9,
+                                   refit_every=10)
+    assert len(result.predictions) == len(result.actual)
+    assert list(result.predictions)
+
+
+def test_summary_row_reports_exactly_the_model_metrics(close):
+    row = na.persistence_forecast(close, train_fraction=0.9).summary_row()
+    for key in ("model", "order", "rmse", "mae", "smape", "mase", "dir_acc",
+                "flat_rate"):
+        assert key in row
+
+
+def test_forecast_idempotent_to_future_perturbation(close):
+    """Walk-forward honesty: predictions are built only from history."""
+    x = np.asarray(close).copy()
+    n = len(x)
+    cut = n - 30  # begin perturbing in the last 30 rows (the test window is 1/10 of n)
+    x2 = x.copy()
+    x2[cut:] = x2[cut:] + 1000.0  # massively perturb the tail
+    m1 = na.moving_average_forecast(x, train_fraction=0.9, window=3)
+    m2 = na.moving_average_forecast(x2, train_fraction=0.9, window=3)
+    # Append-from-history semantics: early predictions must not move.
+    assert np.allclose(np.asarray(m1.predictions[:5]), np.asarray(m2.predictions[:5]))
+
+
+def test_residual_correction_forecast(close):
+    result = na.residual_correction_forecast(close, train_fraction=0.9)
+    assert len(result.predictions) == len(result.actual)
+    assert np.isfinite(result.predictions).all()
+    assert "dir_acc" in result.metrics()

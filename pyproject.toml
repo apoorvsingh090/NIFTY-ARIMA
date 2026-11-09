@@ -1,3 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nifty-arima"
+version = "0.2.0"
+description = "ARIMA forecasting of 1-minute NIFTY 50 prices, benchmarked against persistence"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Apoorv Singh" }]
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.0",
+    "matplotlib>=3.8",
+    "scipy>=1.10",
+    "statsmodels>=0.14",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0,<9",
+    "pytest-cov>=5.0,<7",
+    "ruff>=0.7.1,<0.8",
+]
+
+[tool.setuptools]
+py-modules = ["nifty_arima"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py310"
@@ -11,5 +41,10 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["."]
 addopts = "-q"
+
+[tool.coverage.run]
+source = ["nifty_arima"]
+
+[tool.coverage.report]
+show_missing = true
